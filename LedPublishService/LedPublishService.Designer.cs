@@ -1,6 +1,6 @@
 ﻿namespace LedPublishService
 {
-    partial class Service1
+    partial class LedPublishService
     {
         /// <summary> 
         /// 必需的设计器变量。

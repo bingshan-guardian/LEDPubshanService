@@ -14,10 +14,11 @@ namespace LedPublishService
         /// </summary>
         static void Main()
         {
+            log4net.Config.XmlConfigurator.Configure();
             ServiceBase[] ServicesToRun;
             ServicesToRun = new ServiceBase[]
             {
-                new Service1()
+                new LedPublishService()
             };
             ServiceBase.Run(ServicesToRun);
         }

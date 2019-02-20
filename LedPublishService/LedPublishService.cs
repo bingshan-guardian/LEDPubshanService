@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
+using System.Security;
 using System.Text;
 using System.Threading.Tasks;
 using EQ2008_DataStruct;
@@ -163,25 +164,25 @@ namespace LedPublishService {
             //
             if (0.Equals(sourceEnum)) { // 从Url获取天气txt
                 this.getTxtFromUrl();
-                this.WriteLog("通过Url更新文本：" + this.publishText);
+                this.WriteLog("通过Url更新文本：\r\n" + this.publishText);
             } else if (1.Equals(sourceEnum)) { // 从文件获取天气txt
                 this.getTxtFromFile();
-                this.WriteLog("通过文件更新文本：" + this.publishText);
+                this.WriteLog("通过文件更新文本：\r\n" + this.publishText);
             } else { // 从网络天气服务获取
                 this.getWeatherFromUrl();
-                this.WriteLog("通过Api更新文本：" + this.publishText);
+                this.WriteLog("通过Api更新文本：\r\n" + this.publishText);
             }
             //加载屏幕参数
-            String iniFilePath = this.GetRegistryFolder().GetValue("iniFile").ToString();
+            String iniFilePath = this.GetRegistryFolder().GetValue("iniFile").ToString().Replace(".\\", System.Threading.Thread.GetDomain().BaseDirectory);
             User_ReloadIniFile(iniFilePath);
             this.WriteLog("加载屏幕配置文件：" + iniFilePath);
             this.iCardNum = Convert.ToInt16(this.GetRegistryFolder().GetValue("iCardNum"));
             if (!User_RealtimeConnect(this.iCardNum)) {
-                this.WriteLog("连接控制屏失败");
+                this.WriteLog("连接控制屏失败 iCardNum:" + iCardNum);
                 return;
             }
-            this.WriteLog("连接屏幕成功");
-            if (User_OpenScreen(this.iCardNum) == false) {
+            this.WriteLog("连接屏幕成功 iCardNum:" + iCardNum);
+            if (!User_OpenScreen(this.iCardNum)) {
                 this.WriteLog("打开显示屏失败");
             } else {
                 this.WriteLog("打开显示屏成功");
@@ -201,8 +202,8 @@ namespace LedPublishService {
             Text.PartInfo.iFrameMode = Convert.ToInt16(this.GetRegistryFolder().CreateSubKey("PartInfo").GetValue("iFrameMode"));
             Text.PartInfo.iHeight = Convert.ToInt16(this.GetRegistryFolder().CreateSubKey("PartInfo").GetValue("iHeight"));
             Text.PartInfo.iWidth = Convert.ToInt16(this.GetRegistryFolder().CreateSubKey("PartInfo").GetValue("iWidth"));
-            Text.PartInfo.iX = Convert.ToInt16(this.GetRegistryFolder().CreateSubKey("PartInfo").GetValue("iX"));
-            Text.PartInfo.iY = Convert.ToInt16(this.GetRegistryFolder().CreateSubKey("PartInfo").GetValue("iY"));
+            Text.PartInfo.iX = Convert.ToInt32(this.GetRegistryFolder().CreateSubKey("PartInfo").GetValue("iX"));
+            Text.PartInfo.iY = Convert.ToInt32(this.GetRegistryFolder().CreateSubKey("PartInfo").GetValue("iY"));
 
             Text.FontInfo.bFontBold = Convert.ToBoolean(this.GetRegistryFolder().CreateSubKey("FontInfo").GetValue("bFontBold"));
             Text.FontInfo.bFontItaic = Convert.ToBoolean(this.GetRegistryFolder().CreateSubKey("FontInfo").GetValue("bFontItaic"));
@@ -275,30 +276,44 @@ namespace LedPublishService {
             HttpWebResponse response = request.GetResponse() as HttpWebResponse;
             //直到request.GetResponse()程序才开始向目标网页发送Post请求
             Stream responseStream = response.GetResponseStream();
-            byte[] bArr = new byte[1024];
-            int size = responseStream.Read(bArr, 0, (int)bArr.Length);
-            responseStream.Close();
-            if (size > 0)
+            //byte[] bArr = new byte[1024];
+            //int size = responseStream.Read(bArr, 0, (int)bArr.Length);
+            //responseStream.Close();
+            //if (size > 0)
+            //{
+            //    string inputString = Encoding.GetEncoding(this.GetRegistryFolder().GetValue("encode").ToString()).GetString(bArr);
+            //    return inputString;
+            //}
+            //else
+            //{
+            //    return "";
+            //}
+            string content = "";
+            using (StreamReader sr = new StreamReader(responseStream, Encoding.GetEncoding(this.GetRegistryFolder().GetValue("encode").ToString())))
             {
-                string inputString = Encoding.GetEncoding(this.GetRegistryFolder().GetValue("encode").ToString()).GetString(bArr);
-                return inputString;
+                content = sr.ReadToEnd();
             }
-            else
-            {
-                return "";
-            }
+            return content;
         }
 
         private void WriteLog(String message) {
-            if (!File.Exists("logs\\" + DateTime.Now.Year.ToString() + "\\" + DateTime.Now.ToShortDateString() + ".log")) {
-                if (!Directory.Exists("logs\\" + DateTime.Now.Year.ToString())) {
-                    Directory.CreateDirectory("logs\\" + DateTime.Now.Year.ToString());
+            try {
+                String fileName = DateTime.Now.Year.ToString() + "_" + DateTime.Now.Month.ToString() + "_" + DateTime.Now.Day.ToString();
+                if (!File.Exists(System.Threading.Thread.GetDomain().BaseDirectory + "logs\\" + DateTime.Now.Year.ToString() + "\\" + fileName + ".log")) {
+                    if (!Directory.Exists(System.Threading.Thread.GetDomain().BaseDirectory + "logs")) {
+                        Directory.CreateDirectory(System.Threading.Thread.GetDomain().BaseDirectory + "logs");
+                    }
+                    if (!Directory.Exists(System.Threading.Thread.GetDomain().BaseDirectory + "logs\\" + DateTime.Now.Year.ToString())) {
+                        Directory.CreateDirectory(System.Threading.Thread.GetDomain().BaseDirectory + "logs\\" + DateTime.Now.Year.ToString());
+                    }
+                    File.Create(System.Threading.Thread.GetDomain().BaseDirectory + "logs\\" + DateTime.Now.Year.ToString() + "\\" + fileName + ".log");
+                    File.Create(System.Threading.Thread.GetDomain().BaseDirectory + "logs\\" + DateTime.Now.Year.ToString() + "\\" + fileName + ".log").Dispose();
                 }
-                File.Create("logs\\" + DateTime.Now.Year.ToString() + "\\" + DateTime.Now.ToShortDateString() + ".log");
-                File.Create("logs\\" + DateTime.Now.Year.ToString() + "\\" + DateTime.Now.ToShortDateString() + ".log").Dispose();
-            }
-            using (System.IO.StreamWriter streamWriter = new System.IO.StreamWriter("logs\\" + DateTime.Now.Year.ToString() + "\\" + DateTime.Now.ToShortDateString() + ".log")) {
-                streamWriter.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " : " + message);
+                using (System.IO.StreamWriter streamWriter = new System.IO.StreamWriter(System.Threading.Thread.GetDomain().BaseDirectory + "logs\\" + DateTime.Now.Year.ToString() + "\\" + fileName + ".log", true)) {
+                    streamWriter.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " : " + message);
+                }
+            } catch (Exception e) {
+                System.Console.WriteLine(e.Message);
             }
         }
 
@@ -341,10 +356,10 @@ namespace LedPublishService {
         private void CheckRegistry() {
             this.folder = this.GetRegistryFolder();
             this.CheckMakeRegistry(this.folder, "sourceType", "0");
-            this.CheckMakeRegistry(this.folder, "sourceUrl", "http://10.0.0.171/bac/weather.txt");
+            this.CheckMakeRegistry(this.folder, "sourceUrl", "http://10.0.0.171/moji/weather.txt");
             this.CheckMakeRegistry(this.folder, "sourceFile", ".\\weather.txt");
             this.CheckMakeRegistry(this.folder, "iniFile", ".\\EQ2008_Dll_Set.ini");
-            this.CheckMakeRegistry(this.folder, "publishInterval", "60000");
+            this.CheckMakeRegistry(this.folder, "publishInterval", "600000");
             this.CheckMakeRegistry(this.folder, "encode", "utf-8");
             this.CheckMakeRegistry(this.folder, "iCardNum", "1"); 
 
@@ -386,7 +401,7 @@ namespace LedPublishService {
                     key.SetValue(name, value);
                     this.WriteLog("RegistryKey " + name + " is empty, set value : " + value);
                 } else {
-                    this.WriteLog("RegistryKey " + name + " found, value : " + value);
+                    this.WriteLog("RegistryKey " + name + " found, value : " + regValue);
                 }
             } catch (Exception e) {
                 key.SetValue(name, value);
@@ -428,8 +443,8 @@ namespace LedPublishService {
          *   *本文件必须和应用程序放在同一个目录下。
          */
         private void CheckIniFile() {
-            if (!File.Exists(".\\EQ2008_Dll_Set.ini")) {                
-                FileStream fs = new FileStream(".\\EQ2008_Dll_Set.ini", FileMode.OpenOrCreate, FileAccess.ReadWrite); // 创建文件
+            if (!File.Exists(System.Threading.Thread.GetDomain().BaseDirectory + "EQ2008_Dll_Set.ini")) {                
+                FileStream fs = new FileStream(System.Threading.Thread.GetDomain().BaseDirectory + "EQ2008_Dll_Set.ini", FileMode.OpenOrCreate, FileAccess.ReadWrite); // 创建文件
                 StreamWriter sw = new StreamWriter(fs, Encoding.GetEncoding("gb2312")); // 创建写入流
                 sw.WriteLine("[地址：0]\r\n"
                     + "CardType=21\r\n"
@@ -441,7 +456,7 @@ namespace LedPublishService {
                     + "SerialNum=1\r\n"
                     + "NetPort=5005\r\n"
                     + "IpAddress0=10\r\n"
-                    + "IpAddress1=0\r\n"
+                    + "IpAddress1=1\r\n"
                     + "IpAddress2=175\r\n"
                     + "IpAddress3=100\r\n"
                     + "ColorStyle=0"
@@ -452,7 +467,7 @@ namespace LedPublishService {
         }
 
         private RegistryKey GetRegistryFolder() {
-            return Registry.LocalMachine.CreateSubKey(@"SOFTWARE\BingshanGuardian", true).CreateSubKey("LEDPublish", true);
+            return Registry.LocalMachine.CreateSubKey("SOFTWARE", true).CreateSubKey("BingshanGuardian", true).CreateSubKey("LEDPublish", true);
         }
     }
 }
